@@ -8,6 +8,9 @@ PalDB is an embeddable write-once key-value store written in Java.
 
 What is PalDB?
 -------------------
+PalDB是一个快速的只读嵌入式key-value DB。
+PalDB 是一次写多读的二进制DB。
+PalDB 本身100k 依赖snappy。
 
 PalDB is an embeddable persistent key-value store with very fast read performance and compact store size. PalDB stores are single binary files written once and ready to be used in applications.
 
