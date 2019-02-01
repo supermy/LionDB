@@ -49,12 +49,13 @@ public class TestConfiguration {
     Assert.assertEquals(r.get("foo", null), "bar");
   }
 
+  //触发异常测试
   @Test(expectedExceptions = UnsupportedOperationException.class)
   public void testConfigurationReadOnly() {
     Configuration c = new Configuration();
     c.set("foo", "bar");
 
-    Configuration r = new Configuration(c);
+    Configuration r = new Configuration(c);//初始化完成之后，不允许修改；
     r.set("foo", "bar");
   }
 
@@ -213,7 +214,7 @@ public class TestConfiguration {
   }
 
   @Test
-  public void testGetClass()
+  public void testGetClass() //测试类是否一致
       throws ClassNotFoundException {
     Configuration c = new Configuration();
     c.set("foo", Integer.class.getName());
@@ -250,22 +251,30 @@ public class TestConfiguration {
   }
 
   @Test
-  public void testSerialization()
+  public void testSerialization() //测试序列化配置文件
       throws Throwable {
     Configuration c = new Configuration();
     c.set("foo", "bar");
     c.registerSerializer(new PointSerializer());
 
+    //字节数组输出流在内存中创建一个字节数组缓冲区，所有发送到输出流的数据保存在该字节数组缓冲区中。下面创建一个32字节（默认大小）的缓冲区。
     ByteArrayOutputStream bos = new ByteArrayOutputStream();
+    //也可以输出到文件里面；FileOutputStream fos = new FileOutputStream("t.tmp");
+        //对象的输出流将指定的对象写入到文件的过程，就是将对象序列化的过程;对象输出流；
     ObjectOutputStream out = new ObjectOutputStream(bos);
     out.writeObject(c);
+
     out.close();
     bos.close();
 
+    //创建一个新分配的字节数组。数组的大小和当前输出流的大小，内容是当前输出流的拷贝。
     byte[] bytes = bos.toByteArray();
+    //字节数组输入流在内存中创建一个字节数组缓冲区，从输入流读取的数据保存在该字节数组缓冲区中。
     ByteArrayInputStream bis = new ByteArrayInputStream(bytes);
+    //ObjectOutputStream会在文件中的开头和结尾进行一个标识AC/DC，ObjectInputStream会严格的根据开头和结尾来进行读取，当读取不到的时候就会进行报错
     ObjectInputStream in = new ObjectInputStream(bis);
     Configuration sc = (Configuration) in.readObject();
+
     in.close();
     bis.close();
 

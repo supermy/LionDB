@@ -1,6 +1,19 @@
 Change Log
 ==========
 
+### 阅读理解
+序列化 kryo，快且尺寸小；TestLongPacker
+Hash 采用murmur3,高性能、低碰撞率且分布均衡；
+Hash冲突 开放寻址方法（拉链法、再散列法）
+Hash取模 位计算，高性能:tableSizeFor,indexFor
+Snappy压缩数据  out.write(SHORT_ARRAY_C); //写入数据类型 ；byte[] b = Snappy.compress(val); //数据压缩
+RoaringBitmap 结合kryo序列化
+BloomFilter guava 作为运算，可以持久化与恢复
+
+Json精密性
+
+
+
 Version 1.2.0 *(June 26th 2016)*
 --------------------------
 

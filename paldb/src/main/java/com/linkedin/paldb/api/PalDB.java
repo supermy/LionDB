@@ -22,7 +22,10 @@ import java.io.OutputStream;
 
 /**
  * Factory for store readers and writers.
+ * 存储读取者与书写者创建工厂
+ *
  * <p>
+ *     是读与写的入口点；
  * This class is the entry point to obtain {@link com.linkedin.paldb.api.StoreReader} and
  * {@link com.linkedin.paldb.api.StoreWriter} interfaces.
  */

@@ -22,9 +22,19 @@ import java.nio.ByteBuffer;
 
 /**
  * Packing utility for non-negative
+ * 打包使用程序对于long与int可变长存储
  * <code>long</code> and <code>int</code> values.
  *
  * Originally developed for Kryo by Nathan Sweet. Modified for JDBM by Jan Kotek
+ *
+ * 最初由Nathan Sweet为Kryo开发。Jan Kotek对JDBM的修改
+ *
+ * 可变长存储
+ * kryo对int和long类型都采用了可变长存储的机制，以int为例，一般需要4个字节去存储，而对kryo来说，可以通过1-5个变长字节去存储，从而避免高位都是0的浪费。
+ * 最多需要5个字节存储是因为，在变长存储int过程中，一个字节的8位用来存储有效数字的只有7位，最高位用于标记是否还需读取下一个字节，1表示需要，0表示不需要。
+ * 在对string的存储中也有变长存储的应用，string序列化的整体结构为length+内容，那么length也会使用变长int写入字符的长度。
+ *
+ *
  */
 public final class LongPacker {
 
@@ -118,8 +128,10 @@ public final class LongPacker {
 
   /**
    * Unpack positive long value from the byte array.
+   * 从字节数组中解压Long值
    * <p>
    * The index value indicates the index in the given byte array.
+   * 索引值指示关于字节数组的索引
 
    * @param ba byte array
    * @param index index in ba

@@ -74,6 +74,7 @@ public class TestLongPacker {
       throws IOException {
     byte[] buf = new byte[15];
     LongPacker.packLong(buf, 42l);
+    System.out.println(LongPacker.unpackLong(buf));
     Assert.assertEquals(LongPacker.unpackLong(buf), 42l);
   }
 

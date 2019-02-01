@@ -24,18 +24,20 @@ import java.util.Map;
 
 /**
  * Store configuration.
+ * 存储配置文件
  * <dl>
  *   <dt>This class recognizes the following property keys:</dt>
- *   <dd><code>mmap.segment.size</code> - memory map segment size (bytes) [default: 1GB]</dd>
- *   <dd><code>mmap.data.enabled</code> - enable memory mapping for data (boolean) [default: true]</dd>
- *   <dd><code>load.factor</code> - index load factor (double) [default: 0.75]</dd>
- *   <dd><code>cache.enabled</code> - LRU cache enabled (boolean) [default: false]</dd>
- *   <dd><code>cache.bytes</code> - cache limit (bytes) [default: Xmx - 100MB]</dd>
- *   <dd><code>cache.initial.capacity</code> - cache initial capacity (int) [default: 1000]</dd>
- *   <dd><code>cache.load.factor</code> - cache load factor (double) [default: 0.75]</dd>
- *   <dd><code>compression.enabled</code> - enable compression (boolean) [default: false]</dd>
+ *   <dd><code>mmap.segment.size</code> - 内存映射段默认1G;memory map segment size (bytes) [default: 1GB]</dd>
+ *   <dd><code>mmap.data.enabled</code> - 默认允许内存映射到数据；enable memory mapping for data (boolean) [default: true]</dd>
+ *   <dd><code>load.factor</code> - 索引加载因子默认0.75；index load factor (double) [default: 0.75]</dd>
+ *   <dd><code>cache.enabled</code> - LRU 缓存默认禁止； LRU cache enabled (boolean) [default: false]</dd>
+ *   <dd><code>cache.bytes</code> - 缓存限制100M;cache limit (bytes) [default: Xmx - 100MB]</dd>
+ *   <dd><code>cache.initial.capacity</code> - 患者初始化大小1000个；cache initial capacity (int) [default: 1000]</dd>
+ *   <dd><code>cache.load.factor</code> - 缓存加载因子0.75； cache load factor (double) [default: 0.75]</dd>
+ *   <dd><code>compression.enabled</code> - 压缩允许默认关闭，已经进行自定义的序列化；enable compression (boolean) [default: false]</dd>
  * </dl>
  * <p>
+ *     默认属性加载优先，如下：-Dpaldb.mmap.data.enabled=false;
  * Default values can be set by setting properties to the JVM (ex:
  * -Dpaldb.mmap.data.enabled=false). All property names should be prefixed
  * with <em>paldb</em>.
@@ -68,21 +70,22 @@ public class Configuration implements Serializable {
 
   /**
    * Default constructor that initializes default values.
+   * 默认配置创建初始化默认值
    */
   public Configuration() {
     readOnly = false;
 
     //Default
-    putWithSystemPropertyDefault(MMAP_SEGMENT_SIZE, "1073741824");
-    putWithSystemPropertyDefault(MMAP_DATA_ENABLED, "true");
-    putWithSystemPropertyDefault(LOAD_FACTOR, "0.75");
-    putWithSystemPropertyDefault(CACHE_ENABLED, "false");
-    putWithSystemPropertyDefault(CACHE_INITIAL_CAPACITY, "1000");
-    putWithSystemPropertyDefault(CACHE_LOAD_FACTOR, "0.75");
-    putWithSystemPropertyDefault(COMPRESSION_ENABLED, "false");
+    putWithSystemPropertyDefault(MMAP_SEGMENT_SIZE, "1073741824");//默认内存映射段大小1G
+    putWithSystemPropertyDefault(MMAP_DATA_ENABLED, "true");//内存映射段大小；
+    putWithSystemPropertyDefault(LOAD_FACTOR, "0.75"); //索引阀值
+    putWithSystemPropertyDefault(CACHE_ENABLED, "false");//默认缓存关，缓存走硬盘，不能提速。
+    putWithSystemPropertyDefault(CACHE_INITIAL_CAPACITY, "1000");//缓存初始化尺寸
+    putWithSystemPropertyDefault(CACHE_LOAD_FACTOR, "0.75");//缓存阀值
+    putWithSystemPropertyDefault(COMPRESSION_ENABLED, "false");//压缩关，序列化进行了定制；使用的是snappy
 
     //Default cache size: (Xmx - 100mo);
-    long cacheMemory = Math.max(0, Runtime.getRuntime().maxMemory() - (100 * 1024 * 1024));
+    long cacheMemory = Math.max(0, Runtime.getRuntime().maxMemory() - (100 * 1024 * 1024)); //默认缓存内存100M
     putWithSystemPropertyDefault(CACHE_BYTES, String.valueOf(cacheMemory));
 
     //Serializers
@@ -351,7 +354,7 @@ public class Configuration implements Serializable {
     }
 
     String value = get(key);
-    String[] pieces = value.split("\\s*,\\s*");
+    String[] pieces = value.split("\\s*,\\s*");//java 正则逗号分隔；
     return Arrays.asList(pieces);
   }
 
@@ -382,7 +385,7 @@ public class Configuration implements Serializable {
   public <T> Class<T> getClass(String key)
       throws ClassNotFoundException {
     if (containsKey(key)) {
-      return (Class<T>) Class.forName(get(key));
+      return (Class<T>) Class.forName(get(key)); //获取类
     } else {
       throw new IllegalArgumentException("Missing key " + key + ".");
     }
@@ -392,6 +395,7 @@ public class Configuration implements Serializable {
    * Register <code>serializer</code>.
    * <p>
    * The class for with the serializer is being registered is directly extracted from the class definition.
+   * 直接从类定义中提取；
    *
    * @param serializer serializer to register
    */

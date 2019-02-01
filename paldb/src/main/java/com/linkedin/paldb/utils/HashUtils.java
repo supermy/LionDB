@@ -41,6 +41,16 @@ public class HashUtils {
    * Hash implementation, inspired from java-common.
    *
    * Originally developed for greenrobot by Markus Junginger.
+   *
+   *  MurmurHash 是一种非加密型哈希函数，适用于一般的哈希检索操作。 由Austin Appleby在2008年发明， 并出现了多个变种，
+   *  都已经发布到了公有领域(public domain)。与其它流行的哈希函数相比，对于规律性较强的key，MurmurHash的随机分布特征
+   *  表现更良好。---摘自wiki
+   *     Redis在实现字典时用到了两种不同的哈希算法，MurmurHash便是其中一种（另一种是djb），在Redis中应用十分广泛，
+   * 包括数据库、集群、哈希键、阻塞操作等功能都用到了这个算法。发明算法的作者被邀到google工作，该算法最新版本是MurmurHash3，
+   * 基于MurmurHash2改进了一些小瑕疵，使得速度更快，实现了32位（低延时）、128位HashKey，尤其对大块的数据，具有较高的平衡性
+   * 与低碰撞率。
+   *
+   *
    */
   private static class Murmur3A implements Checksum {
 

@@ -31,6 +31,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
+
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -77,6 +78,8 @@ public class TestStore {
     writer.close();
 
     Assert.assertTrue(bos.toByteArray().length > 0);
+    System.out.println(bos.toByteArray().length);
+    System.out.println(new String(bos.toByteArray()));
 
     ByteArrayInputStream bis = new ByteArrayInputStream(bos.toByteArray());
     StoreReader reader = PalDB.createReader(bis, new Configuration());
@@ -205,7 +208,7 @@ public class TestStore {
     writer.close();
 
     StoreReader reader = PalDB.createReader(STORE_FILE, new Configuration());
-    Assert.assertEquals(reader.size(), 1);
+    Assert.assertEquals(reader.size(), 1);//key 索引
     Assert.assertEquals(reader.get(1), "foo");
     reader.close();
   }

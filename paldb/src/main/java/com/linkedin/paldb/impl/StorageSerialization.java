@@ -30,6 +30,7 @@ import org.xerial.snappy.Snappy;
 
 /**
  * Internal serialization implementation.
+ * 内部序列化实现
  */
 public final class StorageSerialization {
 
@@ -612,13 +613,20 @@ public final class StorageSerialization {
     }
   }
 
+  /**
+   * 是否压缩数据
+   * @param out
+   * @param val
+   * @param compress
+   * @throws IOException
+   */
   private static void serializeShortArray(final DataOutput out, final short[] val, boolean compress)
       throws IOException {
     if (compress && val.length > 250) {
-      out.write(SHORT_ARRAY_C);
-      byte[] b = Snappy.compress(val);
-      LongPacker.packInt(out, b.length);
-      out.write(b);
+      out.write(SHORT_ARRAY_C); //写入数据类型
+      byte[] b = Snappy.compress(val); //数据压缩
+      LongPacker.packInt(out, b.length); //int变长存储
+      out.write(b);//写入数据
     } else {
       out.write(SHORT_ARRAY);
       LongPacker.packInt(out, val.length);

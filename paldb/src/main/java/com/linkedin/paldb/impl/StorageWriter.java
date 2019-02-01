@@ -49,27 +49,36 @@ public class StorageWriter {
   private final double loadFactor;
   // Output
   private final File tempFolder;
+  //
   private final OutputStream outputStream;
-  // Index stream
+  // Index stream 索引文件;维护key对应的index文件
   private File[] indexFiles;
+  // 维护key对应文件流
   private DataOutputStream[] indexStreams;
-  // Data stream
+  // Data stream  数据文件;维护value对应的data文件
   private File[] dataFiles;
+  //维护value对应的data文件流
   private DataOutputStream[] dataStreams;
-  // Cache last value
+
+  // Cache last value 缓存最后的数据
   private byte[][] lastValues;
   private int[] lastValuesLength;
-  // Data length
+
+  // Data length 数据长度=key 长度+1
   private long[] dataLengths;
-  // Index length
+  // Index length 索引长度
   private long indexesLength;
-  // Max offset length
+
+  // Max offset length ；维护index指向data的位移的存储字段类型
   private int[] maxOffsetLengths;
-  // Number of keys
+
+  // Number of keys key 的数量=key 的最大长度+1
   private int keyCount;
   private int[] keyCounts;
-  // Number of values
+
+  // Number of values ；value 的数量
   private int valueCount;
+
   // Number of collisions
   private int collisions;
 
@@ -99,56 +108,74 @@ public class StorageWriter {
     hashUtils = new HashUtils();
   }
 
+  /**
+   * 数据写入过程解析
+   * @param key
+   * @param value
+   * @throws IOException
+   */
   public void put(byte[] key, byte[] value)
       throws IOException {
     int keyLength = key.length;
 
     //Get the Output stream for that keyLength, each key length has its own file
+    //通过key 的长度获取输出流，每个key 长度维护一个索引文件与流；自动扩容
     DataOutputStream indexStream = getIndexStream(keyLength);
 
-    // Write key
+    //1.写入key Write key 字节数组
     indexStream.write(key);
 
-    // Check if the value is identical to the last inserted
+    // Check if the value is identical to the last inserted;
+    // 判断本次数据是否和上次写入数据一致
     byte[] lastValue = lastValues[keyLength];
     boolean sameValue = lastValue != null && Arrays.equals(value, lastValue);
 
     // Get data stream and length
+    // 如果值相同，则使用上一个数据的偏移
     long dataLength = dataLengths[keyLength];
     if (sameValue) {
+      //如果本次写入数据和上次一致，就把dataLength指向上一个value的起始位置
       dataLength -= lastValuesLength[keyLength];
     }
 
-    // Write offset and record max offset length
+    // Write offset and record max offset length；
+      //2.写入key对应value的位移dataLength
     int offsetLength = LongPacker.packLong(indexStream, dataLength);
     maxOffsetLengths[keyLength] = Math.max(offsetLength, maxOffsetLengths[keyLength]);
 
-    // Write if data is not the same
+    // Write if data is not the same；如果数据不相同；
     if (!sameValue) {
-      // Get stream
+      // Get stream；获取指定长度key对应的value的输出流
       DataOutputStream dataStream = getDataStream(keyLength);
 
-      // Write size and value
+      // Write size and value；
+        // 3.写入value的长度和value的值
       int valueSize = LongPacker.packInt(dataStream, value.length);
       dataStream.write(value);
 
-      // Update data length
+      // Update data length；更新数据偏移量，这里的偏移量是下一个写入value的偏移量
       dataLengths[keyLength] += valueSize + value.length;
 
-      // Update last value
+      // Update last value；更新上一次写入的value值
       lastValues[keyLength] = value;
+      //更新keyLength对应的key的保存的data的长度
       lastValuesLength[keyLength] = valueSize + value.length;
 
-      valueCount++;
+      valueCount++; //数据+1
     }
 
-    keyCount++;
-    keyCounts[keyLength]++;
+    keyCount++; //总数key+1
+    keyCounts[keyLength]++; //对应长度个数key+1
   }
 
+  /**
+   * 通过close动作来完成PalDB文件的生成
+   * @throws IOException
+   */
   public void close()
       throws IOException {
     // Close the data and index streams
+    // 关闭及数据与索引文件流
     for (DataOutputStream dos : dataStreams) {
       if (dos != null) {
         dos.close();
@@ -165,11 +192,13 @@ public class StorageWriter {
     LOGGER.log(Level.INFO, "Number of values: {0}", valueCount);
 
     // Prepare files to merge
+    // 准备合并文件
     List<File> filesToMerge = new ArrayList<File>();
 
     try {
 
       //Write metadata file
+      //写元数据文件
       File metadataFile = new File(tempFolder, "metadata.dat");
       metadataFile.deleteOnExit();
       FileOutputStream metadataOututStream = new FileOutputStream(metadataFile);
@@ -207,53 +236,54 @@ public class StorageWriter {
 
   private void writeMetadata(DataOutputStream dataOutputStream)
       throws IOException {
-    //Write format version
+    //Write format version ；版本号
     dataOutputStream.writeUTF(FormatVersion.getLatestVersion().name());
 
-    //Write time
+    //Write time ；写入时间
     dataOutputStream.writeLong(System.currentTimeMillis());
 
     //Prepare
     int keyLengthCount = getNumKeyCount();
     int maxKeyLength = keyCounts.length - 1;
 
-    //Write size (number of keys)
+    //Write size (number of keys) ；key 数量
     dataOutputStream.writeInt(keyCount);
 
-    //Write the number of different key length
+    //Write the number of different key length；keyLength数量,可能会有一些为0的keyLength
     dataOutputStream.writeInt(keyLengthCount);
 
-    //Write the max value for keyLength
+    //Write the max value for keyLength;最大key长度
     dataOutputStream.writeInt(maxKeyLength);
 
     // For each keyLength
     long datasLength = 0l;
     for (int i = 0; i < keyCounts.length; i++) {
       if (keyCounts[i] > 0) {
-        // Write the key length
+        // Write the key length;key 长度
         dataOutputStream.writeInt(i);
 
-        // Write key count
+        // Write key count ；key数量
         dataOutputStream.writeInt(keyCounts[i]);
 
-        // Write slot count
+        // Write slot count ;桶数量 哈希表 slot 数量 = 该 key 长度下的 key 数量 / loadFactor（默认0.75，可手动指定）
+        //每个 slot 的大小是固定的，等于 key 长度 +  value 位置的最大长度（因此，slot 里的数据其实是有部分空闲的）。
         int slots = (int) Math.round(keyCounts[i] / loadFactor);
         dataOutputStream.writeInt(slots);
 
-        // Write slot size
+        // Write slot size ;Key+偏移量长度
         int offsetLength = maxOffsetLengths[i];
         dataOutputStream.writeInt(i + offsetLength);
 
-        // Write index offset
+        // Write index offset ；索引 key占用空间
         dataOutputStream.writeInt((int) indexesLength);
 
-        // Increment index length
+        // Increment index length ；索引的增量
         indexesLength += (i + offsetLength) * slots;
 
-        // Write data length
+        // Write data length ；索引偏移量
         dataOutputStream.writeLong(datasLength);
 
-        // Increment data length
+        // Increment data length ；数据的增量
         datasLength += dataLengths[i];
       }
     }
@@ -266,28 +296,37 @@ public class StorageWriter {
     }
 
     //Write the position of the index and the data
+    // 元数据文件+key文件+value文件的顺序，先写入key索引文件起始位移，再写入value的data文件的起始位移。
     int indexOffset = dataOutputStream.size() + (Integer.SIZE / Byte.SIZE) + (Long.SIZE / Byte.SIZE);
+    //索引整体偏移量
     dataOutputStream.writeInt(indexOffset);
+    //value 整体偏移量=索引偏移量+索引长度
     dataOutputStream.writeLong(indexOffset + indexesLength);
   }
 
   private File buildIndex(int keyLength)
       throws IOException {
-    long count = keyCounts[keyLength];
-    int slots = (int) Math.round(count / loadFactor);
+
+      // 根据该长度下key的数目/负载因子计算存储的slot的格式
+      long count = keyCounts[keyLength];
+      int slots = (int) Math.round(count / loadFactor);
     int offsetLength = maxOffsetLengths[keyLength];
-    int slotSize = keyLength + offsetLength;
+
+      //注意slotSize的计算方式，slot里面保存的内容包括key的长度以及指向data的偏移量占用的字节数
+      int slotSize = keyLength + offsetLength;
 
     // Init index
     File indexFile = new File(tempFolder, "index" + keyLength + ".dat");
     RandomAccessFile indexAccessFile = new RandomAccessFile(indexFile, "rw");
     try {
-      indexAccessFile.setLength(slots * slotSize);
+        // 设置重建key的文件的长度
+        indexAccessFile.setLength(slots * slotSize);
       FileChannel indexChannel = indexAccessFile.getChannel();
       MappedByteBuffer byteBuffer = indexChannel.map(FileChannel.MapMode.READ_WRITE, 0, indexAccessFile.length());
 
       // Init reading stream
-      File tempIndexFile = indexFiles[keyLength];
+        // 初始化输入流
+        File tempIndexFile = indexFiles[keyLength];
       DataInputStream tempIndexStream = new DataInputStream(new BufferedInputStream(new FileInputStream(tempIndexFile)));
       try {
         byte[] keyBuffer = new byte[keyLength];
@@ -295,7 +334,8 @@ public class StorageWriter {
         byte[] offsetBuffer = new byte[offsetLength];
 
         // Read all keys
-        for (int i = 0; i < count; i++) {
+          // 遍历key的数量重新写入到新建的索引文件当中
+          for (int i = 0; i < count; i++) {
           // Read key
           tempIndexStream.readFully(keyBuffer);
 
@@ -303,8 +343,10 @@ public class StorageWriter {
           long offset = LongPacker.unpackLong(tempIndexStream);
 
           // Hash
-          long hash = (long) hashUtils.hash(keyBuffer);
+              // Hash，根据key进行重hash后确定放置到具体的slot位置
+              long hash = (long) hashUtils.hash(keyBuffer);
 
+              //开放寻址法，随机数探测
           boolean collision = false;
           for (int probe = 0; probe < count; probe++) {
             int slot = (int) ((hash + probe) % slots);
@@ -313,8 +355,9 @@ public class StorageWriter {
 
             long found = LongPacker.unpackLong(slotBuffer, keyLength);
             if (found == 0) {
-              // The spot is empty use it
-              byteBuffer.position(slot * slotSize);
+              // The spot is empty use it； 桶为空则使用
+                // 根据hash值写入key以及key对应value在data文件的偏移量
+                byteBuffer.position(slot * slotSize);
               byteBuffer.put(keyBuffer);
               int pos = LongPacker.packLong(offsetBuffer, offset);
               byteBuffer.put(offsetBuffer, 0, pos);
@@ -322,7 +365,8 @@ public class StorageWriter {
             } else {
               collision = true;
               // Check for duplicates
-              if (Arrays.equals(keyBuffer, Arrays.copyOf(slotBuffer, keyLength))) {
+                // PalDB不支持存在相同的key
+                if (Arrays.equals(keyBuffer, Arrays.copyOf(slotBuffer, keyLength))) {
                 throw new RuntimeException(
                         String.format("A duplicate key has been found for for key bytes %s", Arrays.toString(keyBuffer)));
               }
@@ -444,6 +488,7 @@ public class StorageWriter {
       dataStreams[keyLength] = dos;
 
       // Write one byte so the zero offset is reserved
+      // 写一个字节，以便保留零偏移
       dos.writeByte(0);
     }
     return dos;
@@ -452,14 +497,17 @@ public class StorageWriter {
   //Get the index stream for the specified keyLength, create it if needed
   private DataOutputStream getIndexStream(int keyLength)
       throws IOException {
-    // Resize array if necessary
+    // Resize array if necessary;每次按照keyLength进行扩容
     if (indexStreams.length <= keyLength) {
       indexStreams = Arrays.copyOf(indexStreams, keyLength + 1);
       indexFiles = Arrays.copyOf(indexFiles, keyLength + 1);
+
       keyCounts = Arrays.copyOf(keyCounts, keyLength + 1);
       maxOffsetLengths = Arrays.copyOf(maxOffsetLengths, keyLength + 1);
+
       lastValues = Arrays.copyOf(lastValues, keyLength + 1);
       lastValuesLength = Arrays.copyOf(lastValuesLength, keyLength + 1);
+
       dataLengths = Arrays.copyOf(dataLengths, keyLength + 1);
     }
 
@@ -473,6 +521,7 @@ public class StorageWriter {
       dos = new DataOutputStream(new BufferedOutputStream(new FileOutputStream(file)));
       indexStreams[keyLength] = dos;
 
+      //写一个字节，以便保留零偏移 dos.writeByte(0);
       dataLengths[keyLength]++;
     }
     return dos;
@@ -487,4 +536,6 @@ public class StorageWriter {
     }
     return res;
   }
+
+
 }

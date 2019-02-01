@@ -145,9 +145,9 @@ public class StorageReader implements Iterable<Map.Entry<byte[], byte[]>> {
       createdAt = dataInputStream.readLong();
 
       //Metadata counters
-      keyCount = dataInputStream.readInt();
-      keyLengthCount = dataInputStream.readInt();
-      maxKeyLength = dataInputStream.readInt();
+      keyCount = dataInputStream.readInt();  //key数量
+      keyLengthCount = dataInputStream.readInt(); //keyLeng 数量
+      maxKeyLength = dataInputStream.readInt(); //maxKey 长度
 
       //Read offset counts and keys
       indexOffsets = new int[maxKeyLength + 1];
@@ -247,21 +247,38 @@ public class StorageReader implements Iterable<Map.Entry<byte[], byte[]>> {
       return null;
     }
     long hash = (long) hashUtils.hash(key);
-    int numSlots = slots[keyLength];
-    int slotSize = slotSizes[keyLength];
-    int indexOffset = indexOffsets[keyLength];
-    long dataOffset = dataOffsets[keyLength];
+    int numSlots = slots[keyLength];//对应key长度的桶数量
+    int slotSize = slotSizes[keyLength];//桶的尺寸
+    int indexOffset = indexOffsets[keyLength];//对应key长度的索引偏移
+    long dataOffset = dataOffsets[keyLength];//对应key长度的数据偏移
 
+      /**
+       * 使用开放寻址法是槽本身直接存放数据，在插入数据时如果key所映射到的索引已经有数据了，这说明发生了冲突，这时会寻找下一个槽，如果该槽也被占用了则继续寻找下一个槽，直到找到没有被占用的槽，在查找时也使用同样的策略来进行。
+       *
+       * 由于开发寻址法处理冲突的时候占用的是其他槽的位置，这可能导致后续的key在插入的时候更加容易出现哈希冲突，所以采用开放寻址法的哈希表的装载因子不能太高，否则容易出现性能下降。
+       *
+       * 装载因子是哈希表保存的元素数量和哈希表容量的比，通常采用链接法解决哈希冲突的哈希表的装载因子最好不要大于1，而采用开放寻址法的哈希表最好不要大于0.5.
+       *
+       *
+       * ③ 伪随机探测
+       * di=伪随机数序列；具体实现时，应建立一个伪随机数发生器，（如i=(i+p) % m），生成一个位随机序列，并给定一个随机数做起点，每次去加上这个伪随机数++就可以了。
+       *
+       */
     for (int probe = 0; probe < numSlots; probe++) {
-      int slot = (int) ((hash + probe) % numSlots);
+      int slot = (int) ((hash + probe) % numSlots); //伪随机数
       indexBuffer.position(indexOffset + slot * slotSize);
       indexBuffer.get(slotBuffer, 0, slotSize);
 
+      //提取偏离值
       long offset = LongPacker.unpackLong(slotBuffer, keyLength);
-      if (offset == 0) {
+      if (offset == 0) {//没有数据返回
         return null;
       }
-      if (isKey(slotBuffer, key)) {
+
+      //桶中的key与key是否匹配
+    if (isKey(slotBuffer, key)) {
+//      if (Arrays.equals(slotBuffer,key)) {
+        //从内存获取或则从硬盘获取
         byte[] value = mMapData ? getMMapBytes(dataOffset + offset) : getDiskBytes(dataOffset + offset);
         return value;
       }
@@ -269,6 +286,12 @@ public class StorageReader implements Iterable<Map.Entry<byte[], byte[]>> {
     return null;
   }
 
+    /**
+     *
+     * @param slotBuffer  key+偏移量
+     * @param key
+     * @return
+     */
   private boolean isKey(byte[] slotBuffer, byte[] key) {
     for (int i = 0; i < key.length; i++) {
       if (slotBuffer[i] != key[i]) {

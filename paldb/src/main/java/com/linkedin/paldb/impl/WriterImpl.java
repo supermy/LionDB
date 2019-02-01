@@ -29,7 +29,7 @@ import java.util.logging.Logger;
  */
 public final class WriterImpl implements StoreWriter {
 
-  // Logger
+  // Logger  jdk 自带的log
   private final static Logger LOGGER = Logger.getLogger(WriterImpl.class.getName());
   // Configuration
   private final Configuration config;
@@ -39,7 +39,7 @@ public final class WriterImpl implements StoreWriter {
   private final StorageSerialization serialization;
   // File (can be null)
   private final File file;
-  // Stream
+  // Stream 应用输出流FileOutputStream把数据写入本地文件
   private final OutputStream outputStream;
   // Opened?
   private boolean opened;
@@ -52,6 +52,7 @@ public final class WriterImpl implements StoreWriter {
    */
   WriterImpl(Configuration config, File file)
       throws IOException {
+    //应用输出流FileOutputStream把数据写入本地文件
     this(config, new FileOutputStream(file), file);
   }
 

@@ -24,6 +24,7 @@ import java.util.Arrays;
 
 /**
  * Input/Output utility.
+ * 输入输出实用程序
  */
 public final class DataInputOutput implements DataInput, DataOutput, ObjectInput, ObjectOutput {
 

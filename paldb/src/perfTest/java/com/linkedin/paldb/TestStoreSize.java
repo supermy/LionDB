@@ -61,7 +61,7 @@ public class TestStoreSize {
       long fileSize = storeFile.length();
       double sizePerKey = fileSize / (double) i;
 
-      System.out.println(fileSize + ";" + i + ";" + sizePerKey);
+      System.out.println(fileSize/1024/1024 + "M;" + i/10000 + "万;" + sizePerKey);
     }
   }
 }

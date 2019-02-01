@@ -106,16 +106,20 @@ public final class ReaderImpl implements StoreReader {
 
   @Override
   public <K> K get(Object key, K defaultValue) {
-    checkOpen();
+    checkOpen(); //检测存储是否打开；
     if (key == null) {
       throw new NullPointerException("The key can't be null");
     }
+    //从缓存中直接获取数据；
     K value = cache.get(key);
+
     if (value == null) {
       try {
+        //序列化key字节;根据序列化key获取value
         byte[] valueBytes = storage.get(serialization.serializeKey(key));
         if (valueBytes != null) {
 
+          //反序列化
           Object v = serialization.deserialize(dataInputOutput.reset(valueBytes));
           cache.put(key, v);
           return (K) v;

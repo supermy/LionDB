@@ -36,6 +36,7 @@ import java.util.logging.Logger;
 
 /**
  * Manages the custom serializers.
+ * 序列化管理
  */
 public final class Serializers implements Serializable {
 

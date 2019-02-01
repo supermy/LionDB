@@ -28,6 +28,7 @@ import java.util.logging.Logger;
 
 /**
  * Static implementation factory.
+ * 增加null判断与日志；
  */
 public final class StoreImpl {
 

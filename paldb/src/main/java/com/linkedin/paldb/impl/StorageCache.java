@@ -24,6 +24,7 @@ import java.util.logging.Logger;
 
 
 /**
+ * todo google cache ?
  * LRU cache configured on the desired size in memory.
  * <dl>
  *   <dt>This cache can be configured with the following properties:</dt>
