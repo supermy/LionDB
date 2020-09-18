@@ -153,7 +153,7 @@ public class StorageWriter {
       int valueSize = LongPacker.packInt(dataStream, value.length);
       dataStream.write(value);
 
-      // Update data length；更新数据偏移量，这里的偏移量是下一个写入value的偏移量
+      // Update data length；更新数据偏移量，这里的偏移量是下一个写入value的偏移量(值长度长度+值长度)
       dataLengths[keyLength] += valueSize + value.length;
 
       // Update last value；更新上一次写入的value值
@@ -239,20 +239,20 @@ public class StorageWriter {
     //Write format version ；版本号
     dataOutputStream.writeUTF(FormatVersion.getLatestVersion().name());
 
-    //Write time ；写入时间
+    //Write time ；写入时间戳
     dataOutputStream.writeLong(System.currentTimeMillis());
 
     //Prepare
     int keyLengthCount = getNumKeyCount();
     int maxKeyLength = keyCounts.length - 1;
 
-    //Write size (number of keys) ；key 数量
+    //Write size (number of keys) ；key总数量
     dataOutputStream.writeInt(keyCount);
 
-    //Write the number of different key length；keyLength数量,可能会有一些为0的keyLength
+    //Write the number of different key length；keyLength数量,去掉为 0 的
     dataOutputStream.writeInt(keyLengthCount);
 
-    //Write the max value for keyLength;最大key长度
+    //Write the max value for keyLength;key最大长度
     dataOutputStream.writeInt(maxKeyLength);
 
     // For each keyLength
@@ -265,25 +265,25 @@ public class StorageWriter {
         // Write key count ；key数量
         dataOutputStream.writeInt(keyCounts[i]);
 
+        // 构建开放式寻址
         // Write slot count ;桶数量 哈希表 slot 数量 = 该 key 长度下的 key 数量 / loadFactor（默认0.75，可手动指定）
-        //每个 slot 的大小是固定的，等于 key 长度 +  value 位置的最大长度（因此，slot 里的数据其实是有部分空闲的）。
         int slots = (int) Math.round(keyCounts[i] / loadFactor);
         dataOutputStream.writeInt(slots);
 
-        // Write slot size ;Key+偏移量长度
+        // Write slot size ;slot_size=i+最大偏移量长度
         int offsetLength = maxOffsetLengths[i];
-        dataOutputStream.writeInt(i + offsetLength);
+        dataOutputStream.writeInt(i + offsetLength);       //每个 slot 的大小是固定的，等于 key 长度 +  value 位置的最大长度（因此，slot 里的数据其实是有部分空闲的）。
 
-        // Write index offset ；索引 key占用空间
+          // Write index offset ；该长度的键在数据文件中的索引偏移
         dataOutputStream.writeInt((int) indexesLength);
 
-        // Increment index length ；索引的增量
+        // Increment index length ；该长度的键所有桶的长度+索引累计长度
         indexesLength += (i + offsetLength) * slots;
 
-        // Write data length ；索引偏移量
+        // Write data length ；该长度的数据在数据文件中的数据偏移
         dataOutputStream.writeLong(datasLength);
 
-        // Increment data length ；数据的增量
+        // Increment data length ；数据累计长度(值长度长度+值长度) 下一个长度 value的开始位置；
         datasLength += dataLengths[i];
       }
     }
@@ -304,7 +304,7 @@ public class StorageWriter {
     dataOutputStream.writeLong(indexOffset + indexesLength);
   }
 
-  private File buildIndex(int keyLength)
+  private File buildIndex(int keyLength)  //会有多个索引文件
       throws IOException {
 
       // 根据该长度下key的数目/负载因子计算存储的slot的格式
@@ -319,48 +319,48 @@ public class StorageWriter {
     File indexFile = new File(tempFolder, "index" + keyLength + ".dat");
     RandomAccessFile indexAccessFile = new RandomAccessFile(indexFile, "rw");
     try {
-        // 设置重建key的文件的长度
-        indexAccessFile.setLength(slots * slotSize);
+
+      indexAccessFile.setLength(slots * slotSize);// 设置重建key的文件的长度 mmap 根据桶的长度；
       FileChannel indexChannel = indexAccessFile.getChannel();
-      MappedByteBuffer byteBuffer = indexChannel.map(FileChannel.MapMode.READ_WRITE, 0, indexAccessFile.length());
+      MappedByteBuffer byteBuffer = indexChannel.map(FileChannel.MapMode.READ_WRITE, 0, indexAccessFile.length());  //映射内存的起始位置与空间大小
 
       // Init reading stream
         // 初始化输入流
-        File tempIndexFile = indexFiles[keyLength];
+      File tempIndexFile = indexFiles[keyLength];
       DataInputStream tempIndexStream = new DataInputStream(new BufferedInputStream(new FileInputStream(tempIndexFile)));
       try {
-        byte[] keyBuffer = new byte[keyLength];
-        byte[] slotBuffer = new byte[slotSize];
-        byte[] offsetBuffer = new byte[offsetLength];
+
+        byte[] keyBuffer = new byte[keyLength];  //one key byte数组
+        byte[] slotBuffer = new byte[slotSize];  //one solt byte数组
+        byte[] offsetBuffer = new byte[offsetLength]; //one offset byte数组
 
         // Read all keys
           // 遍历key的数量重新写入到新建的索引文件当中
           for (int i = 0; i < count; i++) {
           // Read key
-          tempIndexStream.readFully(keyBuffer);
+          tempIndexStream.readFully(keyBuffer);   //读取 key by keyBuffer 长度；
 
           // Read offset
-          long offset = LongPacker.unpackLong(tempIndexStream);
+          long offset = LongPacker.unpackLong(tempIndexStream);  //读取 data偏移地址
 
           // Hash
-              // Hash，根据key进行重hash后确定放置到具体的slot位置
-              long hash = (long) hashUtils.hash(keyBuffer);
+          long hash = (long) hashUtils.hash(keyBuffer);  // Hash，根据key进行重hash后确定放置到具体的slot位置
 
-              //开放寻址法，随机数探测
+          //开放寻址法，随机数探测
           boolean collision = false;
           for (int probe = 0; probe < count; probe++) {
             int slot = (int) ((hash + probe) % slots);
-            byteBuffer.position(slot * slotSize);
-            byteBuffer.get(slotBuffer);
 
-            long found = LongPacker.unpackLong(slotBuffer, keyLength);
+            byteBuffer.position(slot * slotSize);  //内存块指定地址；
+            byteBuffer.get(slotBuffer); //获取桶长度数据；byteBuffer获取完 key 数据之后，就会移动指针到 slotBuffer 的位置；
+
+            long found = LongPacker.unpackLong(slotBuffer, keyLength); //是否存在 key ，偏移地址是否为 0
             if (found == 0) {
               // The spot is empty use it； 桶为空则使用
-                // 根据hash值写入key以及key对应value在data文件的偏移量
-                byteBuffer.position(slot * slotSize);
-              byteBuffer.put(keyBuffer);
+              byteBuffer.position(slot * slotSize); // 根据hash值写入key以及key对应value在data文件的偏移量
+              byteBuffer.put(keyBuffer); //保存 key
               int pos = LongPacker.packLong(offsetBuffer, offset);
-              byteBuffer.put(offsetBuffer, 0, pos);
+              byteBuffer.put(offsetBuffer, 0, pos); //保存data偏移量 ,pos = offsetBuffer长度
               break;
             } else {
               collision = true;

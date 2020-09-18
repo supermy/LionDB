@@ -57,8 +57,64 @@ public class TestLongPacker {
   public void testPackLong()
       throws IOException {
     DataInputOutput dio = new DataInputOutput();
-    LongPacker.packLong(dio.reset(), 42l);
+    int cnt=LongPacker.packLong(dio.reset(), 42l);
+    System.out.print(cnt);
     Assert.assertEquals(LongPacker.unpackLong(dio.reset(dio.toByteArray())), 42);
+  }
+
+  @Test
+  public void testPackLongBenck()
+          throws IOException {
+    DataInputOutput dio = new DataInputOutput();
+
+    System.out.println(1 & ~0x7FL);
+    System.out.println(5 & ~0x7FL);
+    System.out.println(9 & ~0x7FL);
+    System.out.println(17 & ~0x7FL);
+    System.out.println(171 & ~0x7FL);
+    long val = 1234567890123456789L;
+    System.out.println(val & ~0x7FL);
+    val >>>= 7;
+    System.out.println(val);
+
+
+
+
+    int cnt=LongPacker.packLong(dio.reset(), 1l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 12l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 123l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 1234l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 12345l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 123456l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 1234567l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 12345678l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 123456789l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 1234567890l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 12345678901l);
+    System.out.println(cnt);
+    cnt=LongPacker.packLong(dio.reset(), 123456789012l);
+
+    System.out.println(cnt);
+    System.out.println(LongPacker.unpackLong(dio.reset()));
+
+    System.out.println("数据压缩与解压缩是否正确,最大支持 19 位数字");
+    cnt=LongPacker.packLong(dio.reset(), 1234567890123456789L);
+    System.out.println(cnt);
+    long result=LongPacker.unpackLong(dio.reset());
+    System.out.println(result);
+
+
+//    Assert.assertEquals(LongPacker.unpackLong(dio.reset(dio.toByteArray())), 42);
   }
 
   @Test
@@ -82,7 +138,8 @@ public class TestLongPacker {
   public void testPackLongMax()
       throws IOException {
     DataInputOutput dio = new DataInputOutput();
-    LongPacker.packLong(dio.reset(), Long.MAX_VALUE);
+    int cnt = LongPacker.packLong(dio.reset(), Long.MAX_VALUE);
+    System.out.print(cnt);
     Assert.assertEquals(LongPacker.unpackLong(dio.reset(dio.toByteArray())), Long.MAX_VALUE);
   }
 
